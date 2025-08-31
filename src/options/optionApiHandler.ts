@@ -1,40 +1,12 @@
-import {
-  getModelName,
-  getModelTypeFromName,
-  LLMEngineType,
-} from '@utils/llmEngineTypes';
+import { safeGetElementById } from '@utils/domUtils';
+import { showToast } from '@utils/toastUtils';
 
-// No need for API key links anymore — GPT-5 handled server-side
-function updateApiKeyLink(
-  modelSelect: HTMLSelectElement,
-  apiKeyInputLink: HTMLAnchorElement,
-): void {
-  const selectedModel = modelSelect.value;
-  const selectedModelType = getModelTypeFromName(selectedModel);
-
-  if (!selectedModelType) return;
-
-  // Since we don’t expose API keys, always hide link
-  apiKeyInputLink.style.display = 'none';
-
-  const warningMessage = document.querySelector(
-    '.warning-message',
-  ) as HTMLElement;
-  if (warningMessage) {
-    warningMessage.style.display = 'none';
+// In MVP: no API keys needed, but consensus toggle still uses this file
+export function updateConsensusApiLinks() {
+  const consensusLink = safeGetElementById<HTMLAnchorElement>('consensus-link');
+  if (consensusLink) {
+    consensusLink.href = "https://openai.com/research"; 
+    consensusLink.textContent = "Powered by GPT-5";
   }
+  showToast("Consensus links updated for GPT-5 only.");
 }
-
-// Consensus mode not needed anymore, so just hide that section
-function updateConsensusApiLinks(
-  enableConsensusCheckbox: HTMLInputElement,
-): void {
-  const consensusSection = document.getElementById(
-    'consensusWeights',
-  ) as HTMLElement;
-  if (consensusSection) {
-    consensusSection.classList.add('hidden');
-  }
-}
-
-export { updateApiKeyLink, updateConsensusApiLinks };

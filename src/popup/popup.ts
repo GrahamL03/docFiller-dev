@@ -7,8 +7,8 @@ import {
   getSelectedProfileKey,
   loadProfiles,
 } from '@utils/storage/profiles/profileManager';
-import { setIsEnabled } from '@utils/storage/setProperties';
 import { showToast } from '@utils/toastUtils';
+import { setIsEnabled } from '../utils/storage/setProperties';
 
 document.addEventListener('DOMContentLoaded', async () => {
   let previousState = false;
