@@ -1,48 +1,29 @@
 import { LLMEngineType } from '@utils/llmEngineTypes';
 
-interface typeDefaultProperties {
+interface TypeDefaultProperties {
   model: LLMEngineType;
   sleep_duration: number;
-  enableConsensus: boolean;
   enableDarkTheme: boolean;
-  llmWeights: Record<LLMEngineType, number>;
   automaticFillingEnabled: boolean;
   defaultProfileKey: string;
   defaultProfile: Profile;
   skipMarkedQuestions: boolean;
   enableOpacityOnSkippedQuestions: boolean;
 }
-const LLMWeightsMap = {
-  [LLMEngineType.Gemini]: 0.18,
-  [LLMEngineType.ChatGPT]: 0.26,
-  [LLMEngineType.Anthropic]: 0.35,
-  [LLMEngineType.Mistral]: 0.13,
-  [LLMEngineType.Ollama]: 0.08,
-  [LLMEngineType.ChromeAI]: 0.08,
-};
 
-const DEFAULT_PROPERTIES: typeDefaultProperties = {
+const DEFAULT_PROPERTIES: TypeDefaultProperties = {
   sleep_duration: 1500,
-  model: LLMEngineType.Gemini,
-  enableConsensus: false,
+  model: LLMEngineType.GPT5, // 👈 set your only model here
   enableDarkTheme: true,
-  llmWeights: LLMWeightsMap,
   automaticFillingEnabled: true,
   defaultProfileKey: 'default',
   defaultProfile: {
-    system_prompt: `You are a helpful assistant that writes like a real person.
-Start right away with the answer. Use simple words. Keep sentences short. Use active voice. Sound natural and warm, not robotic. Use contractions like I'm, you're, we'll. Do not use em dashes or fancy symbols. Avoid lists unless the user asks. No emojis. No prefaces or disclaimers. Plain text only.
-For each question give detailed answers without any introductory phrases like "Here is" or "Your answer is." Start directly with the content. Provide answers in plain text ONLY,
-Style rules:
-- Clear, human tone
-- Short, direct sentences
-- Simple vocabulary
-- No em dashes (—), no bullet points unless requested
-
-If you need to explain steps, do it in short lines separated by periods.`,
+    system_prompt: `You are a helpful assistant that fills out forms accurately and concisely.
+Start directly with the answer. Use simple, natural, and clear language.
+Avoid unnecessary prefaces, emojis, or formatting. Provide plain text only.`,
     image_url: '/assets/profile/avatars/default_placeholder.png',
-    name: 'Human',
-    short_description: 'Simple, natural and human-like',
+    name: 'Form Assistant',
+    short_description: 'Accurate and concise form filler',
     is_custom: false,
   },
   skipMarkedQuestions: true,

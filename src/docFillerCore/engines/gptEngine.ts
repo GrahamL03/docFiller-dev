@@ -1,24 +1,13 @@
-import { ChatAnthropic } from '@langchain/anthropic';
-import { ChromeAI } from '@langchain/community/experimental/llms/chrome_ai';
 import {
   StringOutputParser,
   StructuredOutputParser,
 } from '@langchain/core/output_parsers';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { ChatMistralAI } from '@langchain/mistralai';
-import { ChatOllama } from '@langchain/ollama';
 import { ChatOpenAI } from '@langchain/openai';
 import { DEFAULT_PROPERTIES } from '@utils/defaultProperties';
-import { LLMEngineType } from '@utils/llmEngineTypes';
 import { QType } from '@utils/questionTypes';
-import {
-  getAnthropicApiKey,
-  getChatGptApiKey,
-  getGeminiApiKey,
-  getMistralApiKey,
-} from '@utils/storage/getProperties';
+import { getChatGptApiKey } from '@utils/storage/getProperties';
 import { MetricsManager } from '@utils/storage/metricsManager';
 import {
   getSelectedProfileKey,
@@ -27,49 +16,22 @@ import {
 import { DatetimeOutputParser } from 'langchain/output_parsers';
 import { z } from 'zod';
 
-type LLMInstance =
-  | ChatOpenAI
-  | ChatOllama
-  | ChatGoogleGenerativeAI
-  | ChatAnthropic
-  | ChatMistralAI
-  | ChromeAI;
-
 type MagicPromptResponse = {
   subject_context: string;
   expertise_level: string;
   system_prompt: string;
 };
-export class LLMEngine {
-  public engine: LLMEngineType;
-  private instances: Record<LLMEngineType, LLMInstance | undefined>;
-  private apiKeys: Record<string, string | undefined>;
 
+export class LLMEngine {
+  private chatGptApiKey: string = '';
+  private modelInstance: ChatOpenAI | null = null;
   private metricsManager = MetricsManager.getInstance();
 
-  constructor(engine: LLMEngineType) {
-    this.engine = engine;
-
-    this.instances = {
-      [LLMEngineType.ChatGPT]: undefined,
-      [LLMEngineType.Gemini]: undefined,
-      [LLMEngineType.Ollama]: undefined,
-      [LLMEngineType.Mistral]: undefined,
-      [LLMEngineType.Anthropic]: undefined,
-      [LLMEngineType.ChromeAI]: undefined,
-    };
-
-    this.apiKeys = {
-      chatGptApiKey: undefined,
-      geminiApiKey: undefined,
-      mistralApiKey: undefined,
-      anthropicApiKey: undefined,
-    };
-
+  constructor() {
     this.fetchApiKeys()
       .then(() => {
         try {
-          this.instantiateEngine(this.engine);
+          this.instantiateEngine();
         } catch (error) {
           // biome-ignore lint/suspicious/noConsole: debugging error when instantiating engine
           console.error('Error instantiating engine:', error);
@@ -82,75 +44,28 @@ export class LLMEngine {
   }
 
   private async fetchApiKeys(): Promise<void> {
-    this.apiKeys['chatGptApiKey'] = await getChatGptApiKey();
-    this.apiKeys['geminiApiKey'] = await getGeminiApiKey();
-    this.apiKeys['mistralApiKey'] = await getMistralApiKey();
-    this.apiKeys['anthropicApiKey'] = await getAnthropicApiKey();
+    this.chatGptApiKey = await getChatGptApiKey();
   }
-  public instantiateEngine(engine: LLMEngineType): LLMInstance {
-    switch (engine) {
-      case LLMEngineType.ChatGPT:
-        this.instances[engine] = new ChatOpenAI({
-          model: 'gpt-4.1-mini',
-          temperature: 0,
-          maxRetries: 2,
-          apiKey: this.apiKeys['chatGptApiKey'] as string,
-        });
-        break;
-      case LLMEngineType.Gemini:
-        this.instances[engine] = new ChatGoogleGenerativeAI({
-          model: 'gemini-2.5-flash-lite',
-          temperature: 0,
-          maxRetries: 2,
-          apiKey: this.apiKeys['geminiApiKey'] as string,
-        });
-        break;
-      case LLMEngineType.Ollama:
-        this.instances[engine] = new ChatOllama({
-          model: 'qwen3:4b',
-          temperature: 0,
-          maxRetries: 2,
-        });
-        break;
-      case LLMEngineType.Mistral:
-        this.instances[engine] = new ChatMistralAI({
-          model: 'mistral-large-latest',
-          temperature: 0,
-          maxRetries: 2,
-          apiKey: this.apiKeys['mistralApiKey'] as string,
-        });
-        break;
-      case LLMEngineType.Anthropic:
-        this.instances[engine] = new ChatAnthropic({
-          model: 'claude-4-sonnet-latest',
-          temperature: 0,
-          maxRetries: 2,
-          apiKey: this.apiKeys['anthropicApiKey'] as string,
-        });
-        break;
-      case LLMEngineType.ChromeAI:
-        this.instances[engine] = new ChromeAI({
-          temperature: 0.5,
-          topK: 40,
-          systemPrompt:
-            'You are an expert assistant trained to analyze questions and provide accurate responses. For each question: 1) Understand the question and the required response format. 2) Provide answers that strictly adhere to the specified structure and formatting. 3) Ensure responses are precise, accurate, and consistent. Respond only in English.',
-        });
-        break;
-    }
 
-    return this.instances[engine] as LLMInstance;
+  public instantiateEngine(): ChatOpenAI {
+    this.modelInstance = new ChatOpenAI({
+      model: 'gpt-4-mini',
+      temperature: 0,
+      maxRetries: 2,
+      apiKey: this.chatGptApiKey,
+    });
+    return this.modelInstance;
   }
 
   public async getResponse(
     promptText: string,
     questionType: QType,
-    engineType: LLMEngineType,
   ): Promise<LLMResponse | null> {
     const item = {
       type: 'API_CALL',
       prompt: promptText,
       questionType,
-      model: engineType,
+      model: 'gpt-4-mini',
     };
 
     try {
@@ -183,6 +98,7 @@ export class LLMEngine {
       return null;
     }
   }
+
   async invokeMagicLLM(questions: string[]): Promise<MagicPromptResponse> {
     try {
       // biome-ignore lint/suspicious/noConsole: debugging error in LLM engine
@@ -201,7 +117,7 @@ export class LLMEngine {
           "system_prompt": "generated system prompt for the context"
         }
       `;
-      const response = await this.getMagicResponse(promptText, this.engine);
+      const response = await this.getMagicResponse(promptText);
       if (!response) {
         throw new Error('No response received from LLM');
       }
@@ -219,16 +135,16 @@ export class LLMEngine {
       throw error;
     }
   }
+
   async getMagicResponse(
     promptText: string,
-    engineType: LLMEngineType,
   ): Promise<MagicPromptResponse | null> {
     try {
-      let modelInstance = this.instances[engineType];
-      if (!modelInstance) {
+      if (!this.modelInstance) {
         await this.fetchApiKeys();
-        modelInstance = this.instantiateEngine(engineType);
+        this.instantiateEngine();
       }
+
       const expertRoleGeneratorPrompt = `Analyze all questions and create a comprehensive expert role that covers all domains:
 "You are an expert specializing in [list all domains based on frequency, e.g., 'primarily mathematics , with additional expertise in music and human rights ']. As a multidisciplinary professional with deep knowledge across these fields, you serve as [list relevant roles, e.g., 'mathematics professor, music theorist, and human rights consultant']. Your extensive experience covers [list key specialties from all domains]. Provide accurate and detailed answers drawing from your comprehensive expertise."
 Examples:
@@ -237,7 +153,8 @@ Examples:
 - For diverse mix (some history, some music, some art):
 "You are an expert specializing in history, music, and art. As a cultural historian with strong background in musicology and art history, you have extensive experience in..."
 Count and incorporate ALL question domains to ensure comprehensive expertise.`;
-      if (modelInstance) {
+
+      if (this.modelInstance) {
         const promptTemplate = ChatPromptTemplate.fromMessages([
           ['system', expertRoleGeneratorPrompt],
           ['user', '{question}'],
@@ -257,7 +174,7 @@ Count and incorporate ALL question domains to ensure comprehensive expertise.`;
         );
         const chain = RunnableSequence.from([
           promptTemplate,
-          modelInstance,
+          this.modelInstance,
           parser,
         ]);
         const response = await chain.invoke({
@@ -283,14 +200,13 @@ Count and incorporate ALL question domains to ensure comprehensive expertise.`;
     const startTime = performance.now();
     try {
       const parser = this.getParser(questionType);
-      let modelInstance = this.instances[this.engine];
 
-      if (!modelInstance) {
+      if (!this.modelInstance) {
         await this.fetchApiKeys();
-        modelInstance = this.instantiateEngine(this.engine);
+        this.instantiateEngine();
       }
 
-      if (modelInstance) {
+      if (this.modelInstance) {
         const selectedProfileKey = (await getSelectedProfileKey()).trim();
         const profiles = await loadProfiles();
         const systemPrompt =
@@ -302,7 +218,7 @@ Count and incorporate ALL question domains to ensure comprehensive expertise.`;
         ]);
         const chain = RunnableSequence.from([
           promptTemplate,
-          modelInstance,
+          this.modelInstance,
           parser,
         ]);
 
