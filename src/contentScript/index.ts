@@ -1,14 +1,24 @@
-import { ConsensusEngine } from '@docFillerCore/engines/consensusEngine';
 import { runDocFillerEngine } from '@docFillerCore/index';
 import { isFillFormMessage, type MessageResponse } from '@utils/messageTypes';
 import { getIsEnabled } from '@utils/storage/getProperties';
 
+// Simple logger for development
+const logger = {
+  error: (message: string, error?: Error) => {
+    // biome-ignore lint/suspicious/noConsole: Error logging is necessary for debugging
+    console.error(`[DocFiller] ${message}`, error);
+  },
+  info: (message: string) => {
+    // biome-ignore lint/suspicious/noConsole: Info logging for extension status
+    console.log(`[DocFiller] ${message}`);
+  }
+};
+
+// Handle messages from popup/background
 chrome.runtime.onMessage.addListener(
   (
     message: unknown,
-
     _sender: chrome.runtime.MessageSender,
-
     sendResponse: (response: MessageResponse) => void,
   ) => {
     if (isFillFormMessage(message)) {
@@ -16,40 +26,37 @@ chrome.runtime.onMessage.addListener(
         .then(() => {
           sendResponse({ success: true });
         })
-
         .catch((error: Error) => {
-          // biome-ignore lint/suspicious/noConsole: debugging error in content script
-          console.error('Error running doc filler:', error);
-
+          logger.error('Error running doc filler:', error);
           sendResponse({
             success: false,
-
             error: error.message || 'Failed to fill document',
           });
         });
 
-      return true;
+      return true; // Keep listener alive for async response
     }
 
     return false;
   },
 );
 
+// Auto-run when page loads if extension is enabled
 getIsEnabled()
   .then((isEnabled) => {
     if (isEnabled === true) {
-      // biome-ignore lint/suspicious/noConsole: error handling for background doc filler engine
-      runDocFillerEngine().catch(console.error);
+      runDocFillerEngine().catch((error: Error) => {
+        logger.error('Auto-run failed:', error);
+      });
     } else {
-      // biome-ignore lint/suspicious/noConsole: debugging info when extension is disabled
-      console.log('Doc Filler is currently disabled');
+      logger.info('Doc Filler is currently disabled');
     }
     return Promise.resolve();
   })
-  // biome-ignore lint/suspicious/noConsole: error handling for main extension flow
-  .catch(console.error);
+  .catch((error: Error) => {
+    logger.error('Failed to check if extension is enabled:', error);
+  });
 
-// Clean up ConsensusEngine when the page is about to unload
-window.addEventListener('beforeunload', () => {
-  ConsensusEngine.dispose();
-});
+// REMOVED:
+// - ConsensusEngine import and disposal (multi-model complexity)
+// - beforeunload event listener (no longer needed without ConsensusEngine)

@@ -44,8 +44,6 @@
   },
   "type": "module",
   "dependencies": {
-    "@langchain/openai": "^0.6.3",
-    "langchain": "^0.3.30",
     "uuid": "^11.1.0"
   },
   "peerDependencies": {
