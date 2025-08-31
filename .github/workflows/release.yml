@@ -1,0 +1,101 @@
+name: docFiller Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Zip Source Code
+        run: |
+          zip -r docFiller.zip . -x '*.git*' -x '*node_modules*' -x '*build*' -x '*coverage*' -x '*web-ext-artifacts*'
+
+      - name: Extract Version from Tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          MINIFIED_VERSION=${VERSION#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "MINIFIED_VERSION=$MINIFIED_VERSION" >> $GITHUB_ENV
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Installation of Dependencies 
+        run: |
+          bun install
+  
+      - name: Package extension
+        run: |
+          bun run package:firefox
+          bun run package:chromium
+
+      - name: Assemble release notes
+        run: |
+          > release.body.txt
+          VERSION_PATTERN="## ${VERSION}"
+          START_LINE=$(grep -n "$VERSION_PATTERN" CHANGELOG.md | cut -d: -f1 || echo "")
+          if [ -n "$START_LINE" ]; then
+            NEXT_VERSION_LINE=$(($(tail -n +$((START_LINE+1)) CHANGELOG.md | grep -n "^## " | head -n1 | cut -d: -f1 || echo "") + START_LINE))
+            if [ -n "$NEXT_VERSION_LINE" ]; then
+              sed -n "$START_LINE,$((NEXT_VERSION_LINE-1))p" CHANGELOG.md > release.body.txt
+            else
+              sed -n "$START_LINE,\$p" CHANGELOG.md > release.body.txt
+            fi
+          fi
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+          body_path: release.body.txt
+          files: |
+            web-ext-artifacts/docfiller-*.zip
+
+      - name: Upload to Chrome Web Store
+        uses: mobilefirstllc/cws-publish@latest
+        with:
+          action: 'publish'  # one of: upload, publish, testers
+          extension_id: goibiampjlgcdjdfakjepniopldpijcd
+          zip_file: web-ext-artifacts/docfiller-${{ env.MINIFIED_VERSION }}-chromium.zip
+          client_id: ${{ secrets.CHROME_CLIENT_ID }}
+          client_secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh_token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        continue-on-error: true
+      
+      - uses: wdzeng/firefox-addon@v1
+        with:
+          addon-guid: "docFiller@rootcircle.github.io"
+          xpi-path: web-ext-artifacts/docfiller-${{ env.MINIFIED_VERSION }}-firefox.zip
+          self-hosted: false
+          jwt-issuer: ${{ secrets.FIREFOX_AUTH_API_ISSUER }}
+          jwt-secret: ${{ secrets.FIREFOX_AUTH_API_SECRET }}
+          approval-notes: "Available at https://github.com/rootCircle/docFiller/blob/dev/docs/FOR_ADDONS_REVIEWERS.md"      
+        continue-on-error: true
+
+      - uses: wdzeng/edge-addon@v2
+        with:
+          product-id: 4dfc1366-555a-431e-91d1-9991bc771fab
+          zip-path: web-ext-artifacts/docfiller-${{ env.MINIFIED_VERSION }}-chromium.zip
+          api-key: ${{ secrets.EDGE_API_KEY }}
+          client-id: ${{ secrets.EDGE_CLIENT_ID }}
+        continue-on-error: true
+
