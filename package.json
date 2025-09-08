@@ -44,7 +44,7 @@
   },
   "type": "module",
   "dependencies": {
-    "uuid": "^11.1.0"
+    "uuid": "^12.0.0"
   },
   "peerDependencies": {
     "typescript": "^5.9.2"
