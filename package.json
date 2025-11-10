@@ -50,7 +50,7 @@
     "typescript": "^5.9.2"
   },
   "optionalDependencies": {
-    "@esbuild/linux-x64": "^0.25.8"
+    "@esbuild/linux-x64": "^0.27.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.1.3",
